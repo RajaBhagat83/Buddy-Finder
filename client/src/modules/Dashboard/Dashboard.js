@@ -4,13 +4,9 @@ import Phone from "../../assets/phone.svg";
 import messageIcon from "../../assets/message.svg";
 import Input from "../input";
 import { io } from "socket.io-client";
-import backgroundImage from "../../assets/Image.jpg";
-import Arrow from "../../assets/arrow.svg";
-import Whatnew from "../../Components/Whatnew";
 import { useNavigate } from "react-router-dom";
-import NewImage from "../../assets/newPhoto.jpg";
 import Payment from "../../assets/payment.svg";
- 
+
 function Dashboard() {
   const navigate = useNavigate();
   const [user, setUser] = useState(() => {
@@ -29,6 +25,8 @@ function Dashboard() {
   const [socket, setSocket] = useState(null);
   const [interest, setInterest] = useState("");
   const [filteredUsers, setFilteredUsers] = useState([]);
+
+
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -49,64 +47,41 @@ function Dashboard() {
   }, [interest, users]);
 
   useEffect(() => {
-    const newSocket = io("http://localhost:8080");//connect to the websocket server
-    setSocket(newSocket);//stors socket connection
-    return () => newSocket.disconnect(); //clean component when unmount
+    const newSocket = io("http://localhost:8000");
+    setSocket(newSocket);
+    return () => newSocket.disconnect();
   }, []);
 
   useEffect(() => {
     if (!socket || !user?._id) return;
 
-    socket.emit("addUser", user._id); //register the user as online with server
-
-    const handleGetUsers = (activeUsers) =>
-      console.log("activeUsers", activeUsers);
-
+    socket.emit("addUser", user._id);
     const handleGetMessage = (data) => {
       setMessages((prev) => ({
         ...prev,
         messages: [
           ...prev.messages,
-          { user: data.user, message: data.message },
+          { user: data.user, message: data.message, createdAt: data.createdAt },
         ],
       }));
     };
 
-    socket.on("getUsers", handleGetUsers);
+  
     socket.on("getMessage", handleGetMessage);
 
-    return () => { //cleans the listeners when unmounts
-      socket.off("getUsers", handleGetUsers);
+    return () => {
       socket.off("getMessage", handleGetMessage);
     };
   }, [socket, user]);
 
   useEffect(() => {
-    if (!user?._id) return; //waits until the user signin/signup
-    (async () => { // get all the users conversation
-      try {
-        const res = await fetch(
-          `http://localhost:8000/api/conversation/${user._id}`
-        );
-        if (!res.ok) throw new Error("Failed to fetch conversations");
-        setConversation(await res.json());
-      } catch (error) {
-        console.error(error);
-      }
-    })();
-  }, [user]);
-
-  useEffect(() => {
     if (!user?._id) return;
     (async () => {
-      try {
-        const res = await fetch(`http://localhost:8000/api/users/${user._id}`);
-        const data = await res.json();
-        setUsers(data);
-        setFilteredUsers(data);
-      } catch (error) {
-        console.error(error);
-      }
+      const res = await fetch(
+        `http://localhost:8000/api/conversation/${user._id}`
+      );
+      const data = await res.json();
+      setConversation(data);
     })();
   }, [user]);
 
@@ -118,9 +93,10 @@ function Dashboard() {
           ? `http://localhost:8000/api/messages/new?senderId=${user._id}&receiverId=${receiver.receiverId}`
           : `http://localhost:8000/api/messages/${conversationId}`;
       const res = await fetch(url);
-      if (!res.ok) throw new Error("Failed to fetch messages");
+      const data = await res.json();
+      // Ensure each message has a createdAt property (usually from DB timestamps)
       setMessages({
-        messages: await res.json(),
+        messages: data,
         receiver,
         conversationId,
       });
@@ -135,11 +111,7 @@ function Dashboard() {
 
   const sendMessage = async () => {
     const { conversationId, receiver } = messages;
-    if (!receiver) {
-      alert("Please select a conversation first");
-      return;
-    }
-    if (!message.trim()) return;
+    if (!receiver || !message.trim()) return;
 
     socket?.emit("sendMessage", {
       ConversationId: conversationId,
@@ -148,265 +120,206 @@ function Dashboard() {
       receiverId: receiver.receiverId,
     });
 
-    try {
-      const res = await fetch("http://localhost:8000/api/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ConversationId: conversationId,
-          senderId: user._id,
-          message,
-          receiverId: receiver.receiverId,
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to send message");
-      setMessage("");
-      fetchMessage(conversationId, receiver, false);
-    } catch (error) {
-      console.error(error);
-    }
+    await fetch("http://localhost:8000/api/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ConversationId: conversationId,
+        senderId: user._id,
+        message,
+        receiverId: receiver.receiverId,
+      }),
+    });
+    setMessage("");
+    fetchMessage(conversationId, receiver, false);
   };
 
   return (
     <div className="w-screen h-screen flex flex-col px-12 bg-white">
-      {/* Top Task Bar */}
-      <header className="w-full h-16 bg-gradient-to-r from-blue-600 to-indigo-700 shadow-md flex items-center px-6 text-white font-semibold text-xl select-none">
+      <header className="w-full h-16 bg-gradient-to-r from-blue-600 to-indigo-700 shadow-md flex items-center px-6 text-white font-semibold text-xl">
         <div className="flex items-center space-x-4">
           <img
             src={Avatar}
             height="50"
             width="50"
-            alt="User Avatar"
+            alt="avatar"
             className="h-10 w-10 rounded-full"
           />
           <span>Welcome, {user.fullName || "User"}</span>
         </div>
         <nav className="ml-auto flex items-center space-x-8">
-          <button
-            onClick={() => navigate("/")}
-            className="hover:underline focus:outline-none"
-          >
-            Dashboard
-          </button>
-          <button
-            onClick={() => navigate("/Whatnew")}
-            className="hover:underline focus:outline-none"
-          >
-            What's New?
-          </button>
-          <button
-            onClick={() => setAddpage(false)}
-            className="hover:underline focus:outline-none"
-          >
-            Close Profile
-          </button>
+          <button onClick={() => navigate("/")}>Dashboard</button>
+          <button onClick={() => navigate("/Whatnew")}>What's New?</button>
+          <button onClick={() => setAddpage(false)}>Close Profile</button>
         </nav>
       </header>
 
-      {/* Main Content */}
       <div className="flex flex-grow overflow-hidden">
-        {/* Left Panel with gap and shadow separation */}
-        <div
-          className="w-[25%] h-full bg-blue-100  border-r-4  hidden lg:block "
-          style={{ marginTop: 24, boxShadow: "2px 0 8px rgba(0,0,0,0.15)" }}
-        >
-          <div className="flex justify-center items-center p-4 h-[95px] w-[340px] bg-white rounded-xl shadow-lg ml-16 mt-4  hover:scale-105 hover:shadow-2xl cursor-pointer pr-12  hover:border-2 hover:border-blue-400">
-            <img src={Avatar} alt="User Avatar" height={55} width={55} />
-            <div className="font-semibold text-sm ml-6">
-              <div className="text-xl font-semibold">{user.fullName}</div>
-              <div className="text-sm">{user.email}</div>
+        <div className="w-[28%] h-full bg-blue-100 border-r-4 mt-6 p-4 overflow-y-auto">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-full bg-white p-4 rounded-lg shadow-lg">
+              <img
+                src={Avatar}
+                className="w-12 h-12 rounded-full mx-auto"
+                alt="avatar"
+              />
+              <div className="text-center mt-2">
+                <div className="text-lg font-semibold">{user.fullName}</div>
+                <div className="text-sm">{user.email}</div>
+              </div>
             </div>
-          </div>
-          <hr />
-          <div className="ml-10 mt-10 mr-7">
-            <div className="mb-4 pl-6 text-3xl">Connections</div>
-            <div className="border-t-2 border-white"></div>
-            {conversation.length > 0 ? (
-              conversation.map(({ conversationId, user: otherUser }) => (
-                <div
-                  key={conversationId}
-                  className="flex justify-center p-0.5 cursor-pointer"
-                  onClick={() => fetchMessage(conversationId, otherUser, true)}
-                >
-                  <div className="flex h-24 w-[470px] bg-white rounded-xl shadow-lg hover:scale-105 hover:shadow-2xl cursor-pointer px-10 hover:border-2 hover:border-blue-400">
-                    <img src={Avatar} height={55} width={55} />
-                    <div className="font-semibold text-xl ml-6 pt-3">
-                      <div>{otherUser.fullName}</div>
-                      <div className="text-sm">{otherUser.email}</div>
-                      <div className="text-sm">{otherUser.interest}</div>
-                    </div>
+            <div className="text-xl font-bold">Connections</div>
+            {conversation.map(({ conversationId, user: otherUser }) => (
+              <div
+                key={conversationId}
+                className="w-full bg-white p-4 rounded-lg shadow hover:bg-blue-200 cursor-pointer"
+                onClick={() => fetchMessage(conversationId, otherUser, true)}
+              >
+                <div className="flex items-center gap-4">
+                  <img
+                    src={Avatar}
+                    className="w-10 h-10 rounded-full"
+                    alt="avatar"
+                  />
+                  <div>
+                    <div className="font-semibold">{otherUser.fullName}</div>
+                    <div className="text-sm">{otherUser.email}</div>
+                    <div className="text-sm">{otherUser.interest}</div>
                   </div>
                 </div>
-              ))
-            ) : (
-              <div className="text-center text-lg font-semibold mt-12">
-                No Conversations
               </div>
-            )}
+            ))}
           </div>
         </div>
 
-        {/* Middle Panel */}
-        <div className="w-[50%] h-full flex flex-col items-center border-4 border-gray-300 mt-6 m-8">
+        <div className="w-[44%] h-full flex flex-col items-center border-x-4 mt-6 p-4">
           {addpage && selectedUser ? (
-            <div className="w-full flex flex-col items-center mt-20">
-              <div className="bg-white shadow-xl rounded-xl px-8 py-6 w-[50%] h-full text-center border-2 border-black">
-                <button
-                  className="text-red-500 text-xl font-bold float-right"
-                  onClick={() => setAddpage(false)}
-                >
-                  ×
-                </button>
-                <div className="flex pr-12 mt-4">
+            <div className="w-full bg-white rounded-xl p-6 shadow-lg border-2 border-black">
+              <div className="flex justify-between">
+                <div className="flex items-center gap-4">
                   <img
                     src={Avatar}
-                    alt="User Avatar"
-                    height={55}
-                    width={55}
-                    className="mx-auto mb-4"
+                    className="w-12 h-12 rounded-full"
+                    alt="avatar"
                   />
-                  <div className="font-serif">
-                    <h2 className="text-2xl font-bold mt-3">
+                  <div>
+                    <div className="text-xl font-bold">
                       {selectedUser.fullName}
-                    </h2>
-                    <p className="text-sm text-gray-600">
-                      {selectedUser.email}
-                    </p>
-                    <p className="text-sm text-gray-600 mt-3">
-                      {selectedUser.interest}
-                    </p>
+                    </div>
+                    <div className="text-sm">{selectedUser.email}</div>
+                    <div className="text-sm">{selectedUser.interest}</div>
                   </div>
                 </div>
+                <button
+                  onClick={() => setAddpage(false)}
+                  className="text-red-500 font-bold text-xl"
+                >
+                  &times;
+                </button>
               </div>
             </div>
-          ) : (
+          ) : messages.receiver ? (
             <>
-              {messages.receiver && (
-                <div className="w-full lg:w-[85%] bg-[#f0f5fc] h-[80px] mt-14 rounded-xl flex items-center px-14 shadow-md">
+              <div className="flex justify-between w-full p-4 bg-blue-100 rounded-lg">
+                <div className="flex items-center gap-4">
                   <img
                     src={Avatar}
-                    alt="Receiver Avatar"
-                    height={55}
-                    width={55}
+                    className="w-10 h-10 rounded-full"
+                    alt="avatar"
                   />
-                  <div className="ml-6 mr-auto">
-                    <div className="font-semibold text-xl">
+                  <div>
+                    <div className="font-semibold">
                       {messages.receiver.fullName}
                     </div>
-                    <p className="text-sm font-light text-gray-600">
-                      {messages.receiver.email}
-                    </p>
+                    <div className="text-sm">{messages.receiver.email}</div>
                   </div>
-                  <img src={Phone} alt="Call" />
                 </div>
-              )}
-
-              <div className="h-[75%] border w-full overflow-y-auto">
-                <div className="px-10 py-6 mx-4 flex flex-col space-y-3 font-medium font-serif text-lg">
-                  {messages.messages.length > 0 ? (
-                    messages.messages.map((msgObj, idx) => (
-                      <div
-                        key={idx}
-                        className={`max-w-[40%] p-3 break-words ${
-                          msgObj.user._id === user._id
-                            ? "bg-[#14ddff7a] rounded-tl-lg ml-auto"
-                            : "bg-[#e3e30e54] rounded-tr-lg"
-                        }`}
-                      >
-                        {msgObj.message}
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center text-lg font-semibold mt-12 flex justify-center items-center">
-                      No Messages or No Conversation Selected
-                    </div>
-                  )}
-                </div>
+                <img src={Phone} className="w-6 h-6" alt="phone" />
               </div>
-
-              {messages.receiver && (
-                <div className="p-6 w-full flex justify-center items-center border-t">
-                  <Input
-                    placeholder="Type a Message"
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    className="flex-grow mr-4 p-1 border-black w-full"
-                  />
-
-                  {/* Payment Icon (routes to HDFC site) */}
-                  <img
-                    src={Payment}
-                    alt="Payment"
-                    className="cursor-pointer w-8 h-8 mr-4"
-                    onClick={() =>
-                      (window.location.href =
-                        "https://www.hdfcbank.com/personal/pay/money-transfer")
-                    }
-                  />
-
-                  {/* Send Message Button */}
-                  <button
-                    disabled={!message.trim()}
-                    onClick={sendMessage}
-                    className={`cursor-pointer rounded-full ${
-                      message.trim()
-                        ? "opacity-100"
-                        : "opacity-50 cursor-not-allowed"
+              <div className="flex-1 w-full overflow-y-auto my-4 p-4 bg-gray-50 rounded-lg">
+                {messages.messages.map((msg, idx) => (
+                  <div
+                    key={idx}
+                    className={`max-w-[60%] p-3 mb-2 rounded-lg ${
+                      msg.user._id === user._id
+                        ? "bg-blue-200 ml-auto"
+                        : "bg-yellow-100"
                     }`}
-                    aria-label="Send Message"
                   >
-                    <img src={messageIcon} height={45} width={45} alt="Send"/>
-                  </button>
-                </div>
-              )}
+                    <div>{msg.message}</div>
+                    {msg.createdAt && (
+                      <div className="text-xs text-black font-semibold text-right mt-1">
+                        {new Date(msg.createdAt).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="w-full flex items-center gap-4">
+                <Input
+                  placeholder="Type a message"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  className="flex-grow p-2 border border-gray-300 rounded"
+                />
+                <img
+                  src={Payment}
+                  className="w-8 h-8 cursor-pointer"
+                  alt="payment"
+                  onClick={() =>
+                    window.open(
+                      "https://www.hdfcbank.com/personal/pay/money-transfer",
+                      "_blank"
+                    )
+                  }
+                />
+                <button
+                  onClick={sendMessage}
+                  disabled={!message.trim()}
+                  className="p-2 rounded-full bg-blue-500 hover:bg-blue-600 disabled:opacity-50"
+                >
+                  <img src={messageIcon} className="w-6 h-6" alt="send" />
+                </button>
+              </div>
             </>
+          ) : (
+            <div className="mt-20 text-center text-xl text-gray-500">
+              No conversation selected
+            </div>
           )}
         </div>
 
-        {/* Right Panel */}
-        <div className="w-[25%] h-full overflow-scroll bg-blue-100 border-l-4 hidden lg:block mt-6 shadow-2xl">
-          <div className="fixed right-5 top-3 rounded"></div>
-
-          <div className="ml-10 pr-28 py-12">
-            <div className="mb-4 pl-16 text-3xl cursor-pointer">Network</div>
-            <div className="border-t-2 border-white"></div>
-            <Input
-              className="w-[100%] mb-4"
-              placeholder="Search users by interest..."
-              value={interest}
-              onChange={(e) => setInterest(e.target.value)}
-            />
-            {filteredUsers.length > 0 ? (
-              filteredUsers.map(({ user: targetUser }) => (
-                <div
-                  key={targetUser._id}
-                  className="flex justify-center pl-24 p-0.5 cursor-pointer"
-                  onClick={() => fetchMessage("new", targetUser, true)}
-                >
-                  <div className="flex">
-                    <div className="flex h-24 w-[350px] bg-white rounded-xl shadow-lg ml-6  hover:scale-105 hover:shadow-2xl cursor-pointer pr-4  flex-wrap mr-12 hover:border-2 hover:border-blue-400">
-                      <img
-                        src={Avatar}
-                        alt="User Avatar"
-                        height={55}
-                        width={55}
-                        className="pl-3"
-                      />
-                      <div className="font-semibold text-xl ml-4 pt-3">
-                        <div>{targetUser.fullName}</div>
-                        <div className="text-sm">{targetUser.email}</div>
-                        <div className="text-sm">{targetUser.interest}</div>
-                      </div>
-                    </div>
-                  </div>
+        <div className="w-[28%] h-full bg-blue-100 border-l-4 mt-6 p-4 overflow-y-auto">
+          <div className="text-xl font-bold mb-4">Network</div>
+          <Input
+            placeholder="Search users by interest..."
+            value={interest}
+            onChange={(e) => setInterest(e.target.value)}
+            className="w-full mb-4 p-2 border border-gray-300 rounded"
+          />
+          {filteredUsers.map(({ user: u }) => (
+            <div
+              key={u._id}
+              className="w-full bg-white p-4 mb-3 rounded-lg shadow hover:bg-blue-200 cursor-pointer"
+              onClick={() => fetchMessage("new", u, true)}
+            >
+              <div className="flex items-center gap-4">
+                <img
+                  src={Avatar}
+                  className="w-10 h-10 rounded-full"
+                  alt="avatar"
+                />
+                <div>
+                  <div className="font-semibold">{u.fullName}</div>
+                  <div className="text-sm">{u.email}</div>
+                  <div className="text-sm">{u.interest}</div>
                 </div>
-              ))
-            ) : (
-              <div className="text-center text-lg font-semibold mt-12">
-                No users found
               </div>
-            )}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

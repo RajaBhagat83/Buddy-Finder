@@ -9,9 +9,11 @@ const MessageSchema = mongoose.Schema({
   },
   message:{
     type:String
-  }
+  },
 
-})
+},
+{timestamps:true}
+)
 
 const Messages = mongoose.model('Message',MessageSchema);
 module.exports = Messages;

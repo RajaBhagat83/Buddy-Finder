@@ -5,9 +5,9 @@ const jwt = require("jsonwebtoken");
 const cors = require("cors");
 const http = require("http");
 const socketIo = require("socket.io");
-JWT_SECRET="secret"
+JWT_SECRET = "secret";
 
-require("dotenv").config();//used to load .env variable to process.env
+require("dotenv").config(); //used to load .env variable to process.env
 require("./db/connection.js");
 
 const User = require("./models/User");
@@ -15,7 +15,7 @@ const Conversation = require("./models/Conversation");
 const Messages = require("./models/Messages");
 
 const app = express();
-const server = http.createServer(app);// create HTTP server that uses Express app
+const server = http.createServer(app); // create HTTP server that uses Express app
 
 const io = socketIo(server, {
   cors: {
@@ -24,21 +24,26 @@ const io = socketIo(server, {
   },
 });
 
-app.use(cors());//accept request from any domain
-app.use(express.json());//parse request
-app.use(express.urlencoded({ extended: false }));//url-encoded form data ko parse karta hai
+app.use(cors()); //accept request from any domain
+app.use(express.json()); //parse request
+app.use(express.urlencoded({ extended: false })); //url-encoded form data ko parse karta hai
 
-//Socker io
-let users = [];//stores online users[userid,socketid]
+let users = []; //stores online users [{userId, socketId}]
+
+function broadcastOnlineUsers() {
+  // Send unique user IDs (no duplicates)
+  const onlineUserIds = [...new Set(users.map((u) => u.userId))];
+  io.emit("updateUserStatus", onlineUserIds); // broadcast to all clients
+}
+
 io.on("connection", (socket) => {
   console.log("User connected", socket.id);
 
   socket.on("addUser", (userId) => {
-    const exists = users.find((user) => user.userId === userId);
-    if (!exists) {
-      users.push({ userId, socketId: socket.id });
-      io.emit("getUsers", users);//this line is used to tell all the usrs who  online usrs are
-    }
+    // Allow multiple sockets per user
+    users.push({ userId, socketId: socket.id });
+    io.emit("getUsers", users);
+    broadcastOnlineUsers();
   });
 
   socket.on("sendMessage", async ({ senderId, receiverId, message, conversationId }) => {
@@ -61,15 +66,21 @@ io.on("connection", (socket) => {
     }
   });
 
-socket.on("disconnect", () => { //when someone leaves ,remove them from online and tell everyone who is online
-    users = users.filter((user) => user.socketId !== socket.id);
+
+  socket.on("disconnect", () => {
+    console.log("Client disconnected:", socket.id);
+    removeUser(socket.id);
     io.emit("getUsers", users);
   });
 });
+function removeUser(socketId) {
+  users = users.filter((user) => user.socketId !== socketId);
+  broadcastOnlineUsers(); // update online users after removal
+}
 
 app.get("/", (req, res) => res.send("Welcome"));
 
-// ===== Auth Endpoints =====
+// Auth Endpoints 
 app.post("/api/register", async (req, res) => {
   try {
     const { fullName, email, password, interest } = req.body;
@@ -94,7 +105,6 @@ app.post("/api/register", async (req, res) => {
 
     await newUser.save();
 
-    // Generate JWT token
     const token = jwt.sign({ userId: newUser._id }, JWT_SECRET, { expiresIn: "1d" });
 
     res.status(201).json({
@@ -138,7 +148,7 @@ app.post("/api/login", async (req, res) => {
   });
 });
 
-//Conversation Endpoints
+// ===== Conversation Endpoints =====
 app.post("/api/conversation", async (req, res) => {
   const { senderId, receiverId } = req.body;
   if (!senderId || !receiverId) return res.status(400).send("Required IDs missing");
@@ -161,12 +171,14 @@ app.get("/api/conversation/:userId", async (req, res) => {
     conversations.map(async (conv) => {
       const otherId = conv.members.find((id) => id.toString() !== userId);
       const user = await User.findById(otherId);
+      const isOnline = users.some((u) => u.userId === otherId.toString());
       return {
         user: {
           receiverId: user._id,
           fullName: user.fullName,
           email: user.email,
           interest: user.interest,
+          isOnline,
         },
         conversationId: conv._id,
       };
@@ -176,7 +188,7 @@ app.get("/api/conversation/:userId", async (req, res) => {
   res.status(200).json(result);
 });
 
-// Messages Endpoints 
+//  Messages Endpoints 
 app.post("/api/messages", async (req, res) => {
   let { ConversationId, senderId, message, receiverId } = req.body;
   if (!senderId || !message) return res.status(400).send("Required fields missing");
@@ -226,6 +238,7 @@ app.get("/api/messages/:ConversationId", async (req, res) => {
           interest: sender.interest,
         },
         message: msg.message,
+       createdAt: msg.createdAt,
       };
     })
   );
@@ -233,35 +246,42 @@ app.get("/api/messages/:ConversationId", async (req, res) => {
   res.status(200).json(result);
 });
 
-// Get Users
+//  Get Users Endpoints
 app.get("/api/users/:userId", async (req, res) => {
   const { userId } = req.params;
-  const users = await User.find({ _id: { $ne: userId } });
+  const usersData = await User.find({ _id: { $ne: userId } });
 
-  const result = users.map((user) => ({
-    user: {
-      email: user.email,
-      fullName: user.fullName,
-      receiverId: user._id,
-      interest: user.interest,
-    },
-  }));
+  const result = usersData.map((user) => {
+    const isOnline = users.some((u) => u.userId === user._id.toString());
+    return {
+      user: {
+        email: user.email,
+        fullName: user.fullName,
+        receiverId: user._id,
+        interest: user.interest,
+        isOnline,
+      },
+    };
+  });
 
   res.status(200).json(result);
 });
 
 app.get("/api/users", async (req, res) => {
   try {
-    const users = await User.find(); // Fetch users from MongoDB
-
-    const result =users.map(user => ({
-      user: {
-        email: user.email,
-        fullName: user.fullName,
-        receiverId: user._id,
-        interest: user.interest||"",
-      },
-    }));
+    const usersData = await User.find();
+    const result = usersData.map((user) => {
+      const isOnline = users.some((u) => u.userId === user._id.toString());
+      return {
+        user: {
+          email: user.email,
+          fullName: user.fullName,
+          receiverId: user._id,
+          interest: user.interest || "",
+          isOnline,
+        },
+      };
+    });
 
     res.status(200).json(result);
   } catch (error) {
@@ -270,11 +290,8 @@ app.get("/api/users", async (req, res) => {
   }
 });
 
-
-
-
+// ===== Start Server =====
 const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-server.listen(8080, () => {
-  console.log("Socket server running on http://localhost:8080");
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
