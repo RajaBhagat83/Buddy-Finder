@@ -171,7 +171,10 @@ app.get("/api/conversation/:userId", async (req, res) => {
     conversations.map(async (conv) => {
       const otherId = conv.members.find((id) => id.toString() !== userId);
       const user = await User.findById(otherId);
+      if (!user) return null;  // <-- added null check here
+      
       const isOnline = users.some((u) => u.userId === otherId.toString());
+
       return {
         user: {
           receiverId: user._id,
@@ -185,7 +188,9 @@ app.get("/api/conversation/:userId", async (req, res) => {
     })
   );
 
-  res.status(200).json(result);
+  const filteredResult = result.filter(r => r !== null);
+
+  res.status(200).json(filteredResult);
 });
 
 //  Messages Endpoints 
