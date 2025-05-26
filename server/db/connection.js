@@ -1,6 +1,6 @@
  const mongoose = require("mongoose");
 
- const url =`mongodb+srv://RajaBhagat:1Locobgmi@clusterinitial.3qwfh.mongodb.net/Chat`;
+ const url =`Mongo_UR`;
 //  mongodb+srv://RajaBhagat:1Locobgmi@clusterinitial.3qwfh.mongodb.net/Title
 
 mongoose.connect(url,{
