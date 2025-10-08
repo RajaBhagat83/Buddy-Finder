@@ -4,7 +4,11 @@ import Input from "../input/index.js";
 import React, { useState } from "react";
 import loginImage from "../../assets/login.png";
 
+<<<<<<< HEAD
 function Form({ isSignin = false ,setToken,setUser}) {
+=======
+function Form({ isSignin = false }) {
+>>>>>>> origin/main
   const [data, setData] = useState({
     ...(!isSignin && {
       fullName: "",
@@ -47,10 +51,14 @@ function Form({ isSignin = false ,setToken,setUser}) {
       if (resData.token) {
         localStorage.setItem("user:token", resData.token);
         localStorage.setItem("user:details", JSON.stringify(resData.user));
+<<<<<<< HEAD
         setToken(resData.token);
         setUser(resData.user);
         navigate("/DashBoard");
         console.log("heelo user");
+=======
+        navigate("/");
+>>>>>>> origin/main
       } else {
         alert("Unexpected response. Please try again.");
       }
@@ -83,7 +91,13 @@ function Form({ isSignin = false ,setToken,setUser}) {
                 type="text"
                 value={data.fullName}
                 className="w-[84%]"
+<<<<<<< HEAD
                 onChange={(e) => setData({ ...data, fullName: e.target.value })}
+=======
+                onChange={(e) =>
+                  setData({ ...data, fullName: e.target.value })
+                }
+>>>>>>> origin/main
               />
             )}
             <Input
@@ -103,7 +117,13 @@ function Form({ isSignin = false ,setToken,setUser}) {
                 type="text"
                 className="w-[84%]"
                 value={data.interest}
+<<<<<<< HEAD
                 onChange={(e) => setData({ ...data, interest: e.target.value })}
+=======
+                onChange={(e) =>
+                  setData({ ...data, interest: e.target.value })
+                }
+>>>>>>> origin/main
               />
             )}
             <Input
