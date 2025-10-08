@@ -73,6 +73,7 @@ io.on("connection", (socket) => {
     io.emit("getUsers", users);
   });
 });
+
 function removeUser(socketId) {
   users = users.filter((user) => user.socketId !== socketId);
   broadcastOnlineUsers(); // update online users after removal

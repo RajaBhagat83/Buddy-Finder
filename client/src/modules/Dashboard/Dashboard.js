@@ -7,7 +7,7 @@ import { io } from "socket.io-client";
 import { useNavigate } from "react-router-dom";
 import Payment from "../../assets/payment.svg";
 
-function Dashboard() {
+function Dashboard({handleLogout}) {
   const navigate = useNavigate();
   const [user, setUser] = useState(() => {
     return JSON.parse(localStorage.getItem("user:details")) || {};
@@ -27,7 +27,6 @@ function Dashboard() {
   const [filteredUsers, setFilteredUsers] = useState([]);
 
 
-
   useEffect(() => {
     const fetchUsers = async () => {
       const response = await fetch("http://localhost:8000/api/users");
@@ -40,7 +39,7 @@ function Dashboard() {
 
   useEffect(() => {
     const term = interest.trim().toLowerCase();
-    if (!term) return setFilteredUsers(users);
+    if (!term) return setFilteredUsers(users.filter((u) => u._id !==user._id ));
     setFilteredUsers(
       users.filter(({ user }) => user.interest?.toLowerCase().includes(term))
     );
@@ -73,6 +72,7 @@ function Dashboard() {
       socket.off("getMessage", handleGetMessage);
     };
   }, [socket, user]);
+  
 
   useEffect(() => {
     if (!user?._id) return;
@@ -148,9 +148,9 @@ function Dashboard() {
           <span>Welcome, {user.fullName || "User"}</span>
         </div>
         <nav className="ml-auto flex items-center space-x-8">
-          <button onClick={() => navigate("/")}>Dashboard</button>
+          <button onClick={() => navigate("/DashBoard")}>Dashboard</button>
           <button onClick={() => navigate("/Whatnew")}>What's New?</button>
-          <button onClick={() => setAddpage(false)}>Close Profile</button>
+          <button onClick={handleLogout}>Close Profile</button>
         </nav>
       </header>
 

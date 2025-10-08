@@ -4,7 +4,7 @@ import Input from "../input/index.js";
 import React, { useState } from "react";
 import loginImage from "../../assets/login.png";
 
-function Form({ isSignin = false }) {
+function Form({ isSignin = false ,setToken,setUser}) {
   const [data, setData] = useState({
     ...(!isSignin && {
       fullName: "",
@@ -47,7 +47,10 @@ function Form({ isSignin = false }) {
       if (resData.token) {
         localStorage.setItem("user:token", resData.token);
         localStorage.setItem("user:details", JSON.stringify(resData.user));
-        navigate("/");
+        setToken(resData.token);
+        setUser(resData.user);
+        navigate("/DashBoard");
+        console.log("heelo user");
       } else {
         alert("Unexpected response. Please try again.");
       }
@@ -80,9 +83,7 @@ function Form({ isSignin = false }) {
                 type="text"
                 value={data.fullName}
                 className="w-[84%]"
-                onChange={(e) =>
-                  setData({ ...data, fullName: e.target.value })
-                }
+                onChange={(e) => setData({ ...data, fullName: e.target.value })}
               />
             )}
             <Input
@@ -102,9 +103,7 @@ function Form({ isSignin = false }) {
                 type="text"
                 className="w-[84%]"
                 value={data.interest}
-                onChange={(e) =>
-                  setData({ ...data, interest: e.target.value })
-                }
+                onChange={(e) => setData({ ...data, interest: e.target.value })}
               />
             )}
             <Input
